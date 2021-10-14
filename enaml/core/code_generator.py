@@ -433,12 +433,18 @@ class CodeGenerator(Atom):
         """ Insert the compiled code for a Python Module ast or string.
 
         """
+        # XXX visit the ast to figure out the lines of explicit returns (only if trim)
         code = compile(pydata, self.filename, mode='exec')
         bc_code = bc.Bytecode.from_code(code)
         # Skip the LOAD_CONST RETURN_VALUE pair if it exists (on Python 3.10+
         # if the module ends on a raise, that pair which is unreachable is ommitted)
         if trim and bc_code[-1].name == "RETURN_VALUE":
             bc_code = bc_code[:-2]
+            # XXX on python 3.10 with a with or try statement the implicit return None
+            # can be duplicated which make things murky
+            # Use a BytecodeControlFlowGraph, inspect all block exits and if the last 2
+            # bytecode match return None but are not on a line matching an explicit
+            # return remove them
         self.code_ops.extend(bc_code)
 
     def insert_python_expr(self, pydata, trim=True):
